@@ -2,7 +2,7 @@
 """Sri Lanka personal income tax calculator (pure Python, no dependencies).
 
 Usage:
-  lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 156000
+  lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 222000
   lk_tax_calc.py apit --monthly 350000 --ya 2025/26
 Rules snapshot: October 2026. Verify at ird.gov.lk before relying on results.
 """
@@ -28,15 +28,16 @@ L = {
         "pers": "Personal relief", "solar": "Solar relief", "don": "Donations (qualifying)", "taxable": "Taxable income",
         "band": "Band", "tax": "Tax before credits", "credits": "Credits (APIT/AIT/WHT/instalments)",
         "pay": "BALANCE PAYABLE (by 30 Sep)", "refund": "REFUND / OVERPAID", "eff": "Effective rate on assessable income",
-        "apit": "Monthly APIT", "gross": "Monthly gross", "note": "General guidance only - confirm with ird.gov.lk or a registered tax advisor.",
+        "apit": "Monthly APIT", "gross": "Monthly gross", "foreign": "foreign income, max 15%", "note": "General guidance only - confirm with ird.gov.lk or a registered tax advisor.",
     },
     "si": {
-        "title": "ශ්‍රී ලංකා ආදායම් බද්ද - Y/A {ya}", "assess": "ඇස්තමේන්තුගත ආදායම (Assessable income)",
+        "title": "ශ්‍රී ලංකා ආදායම් බද්ද - Y/A {ya}", "assess": "තක්සේරු කළ හැකි ආදායම (Assessable income)",
         "rentrel": "කුලී සහනය (Rent relief 25%)", "pers": "පුද්ගලික සහන (Personal relief)", "solar": "සූර්ය පැනල සහනය (Solar relief)",
         "don": "පරිත්‍යාග (Donations)", "taxable": "බදු ගෙවිය යුතු ආදායම (Taxable income)", "band": "පරාසය",
         "tax": "බද්ද (credits පෙර)", "credits": "ගෙවූ බදු (APIT/AIT/WHT/instalments)",
         "pay": "ගෙවිය යුතු ශේෂය (සැප්තැම්බර් 30 ට පෙර)", "refund": "ආපසු ලැබිය යුතු මුදල (Refund)",
         "eff": "සඵල බදු අනුපාතය", "apit": "මාසික APIT", "gross": "මාසික දළ ආදායම",
+        "foreign": "විදේශ ආදායම, උපරිම 15%",
         "note": "මෙය සාමාන්‍ය මඟපෙන්වීමක් පමණි; ird.gov.lk හෝ ලියාපදිංචි බදු උපදේශකයෙකු සමඟ තහවුරු කරගන්න.",
     },
 }
@@ -59,8 +60,9 @@ def compute_bands(taxable, bands, foreign_top=0.0):
         f_start = taxable - foreign_top
         f_amt = max(0.0, end - max(start, f_start))
         o_amt = amt - f_amt
-        t = o_amt * rate + f_amt * min(rate, FOREIGN_CAP)
-        rows.append((start, end, rate, amt, t))
+        f_rate = min(rate, FOREIGN_CAP)
+        t = o_amt * rate + f_amt * f_rate
+        rows.append((start, end, rate, amt, t, o_amt, f_amt, f_rate))
         total += t
         remaining -= amt
         start = end
@@ -87,7 +89,8 @@ def annual(a):
     res = dict(ya=a.ya, assessable=assessable, rent_relief=rent_rel, personal_relief=relief, solar_relief=solar,
                donations=don, taxable=taxable, tax=tax, credits=credits, balance=bal,
                effective_rate=(tax / assessable if assessable else 0.0),
-               bands=[dict(from_=r[0], to=r[1], rate=r[2], amount=r[3], tax=r[4]) for r in rows])
+               bands=[dict(from_=r[0], to=r[1], rate=r[2], amount=r[3], tax=r[4],
+                          ordinary_amount=r[5], foreign_amount=r[6], foreign_rate=r[7]) for r in rows])
     return res
 
 
@@ -97,12 +100,20 @@ def print_annual(r, lang):
     print("-" * 60)
     for k, v in [("assess", r["assessable"]), ("rentrel", -r["rent_relief"] or 0), ("pers", -r["personal_relief"]),
                  ("solar", -r["solar_relief"]), ("don", -r["donations"])]:
-        print(f"{t[k]:<48}{('-' + rs(-v)) if v < 0 else rs(v):>14}")
+        print(f"{t[k]:<48}{('-' + rs(-v)) if round(v) < 0 else rs(v):>14}")
     print(f"{t['taxable']:<48}{rs(r['taxable']):>14}")
     for b in r["bands"]:
-        print(f"  {t['band']} {b['from_']:>10,.0f}-{b['to']:>10,.0f} @ {b['rate']*100:>4.0f}% on {rs(b['amount']):>14} = {rs(b['tax'])}")
+        rng = f"  {t['band']} {b['from_']:>10,.0f}-{b['to']:>10,.0f}"
+        parts = []
+        if b["ordinary_amount"] > 0:
+            parts.append((b["rate"], b["ordinary_amount"], ""))
+        if b["foreign_amount"] > 0:
+            parts.append((b["foreign_rate"], b["foreign_amount"], f" ({t['foreign']})"))
+        for i, (rate, amt, tag) in enumerate(parts):
+            label = rng if i == 0 else " " * len(rng)
+            print(f"{label} @ {rate*100:>4.0f}% on {rs(amt):>14} = {rs(amt * rate)}{tag}")
     print(f"{t['tax']:<48}{rs(r['tax']):>14}")
-    print(f"{t['credits']:<48}{'-' + rs(r['credits']):>14}")
+    print(f"{t['credits']:<48}{('-' + rs(r['credits'])) if round(r['credits']) > 0 else rs(0):>14}")
     key = "pay" if r["balance"] >= 0 else "refund"
     print(f"{t[key]:<48}{rs(abs(r['balance'])):>14}")
     print(f"{t['eff']}: {r['effective_rate']*100:.2f}%")
@@ -124,8 +135,8 @@ def main():
     for f in ("employment", "business", "rent", "interest", "other", "foreign", "solar", "donations",
               "apit-paid", "ait-paid", "rent-wht", "wht-paid", "instalments"):
         pa.add_argument("--" + f, type=float, default=0.0,
-                        help={"foreign": "foreign-currency service/foreign-source income remitted via bank (rate capped at 15%)",
-                              "business": "net profit", "rent": "gross rent (25% relief applied)",
+                        help={"foreign": "foreign-currency service/foreign-source income remitted via bank (rate capped at 15%%)",
+                              "business": "net profit", "rent": "gross rent (25%% relief applied)",
                               "solar": "solar panel cost/loan repayments (max 600,000)"}.get(f))
     pa.add_argument("--lang", choices=["en", "si"], default="en")
     pa.add_argument("--json", action="store_true")

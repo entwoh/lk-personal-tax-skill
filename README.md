@@ -64,7 +64,7 @@ Pick the one that matches the app you already use:
 
 ## Calculator
 ```bash
-python3 scripts/lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 156000 --interest 400000 --ait-paid 40000
+python3 scripts/lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 222000 --interest 400000 --ait-paid 40000
 python3 scripts/lk_tax_calc.py apit --monthly 350000
 ```
 

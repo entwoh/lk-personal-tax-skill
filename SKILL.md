@@ -45,7 +45,7 @@ Before quoting a rate, threshold or date:
 |---|---|
 | "Do I need to pay / file?" | §4 decision rules + `references/filing-and-payment.md` |
 | "How much tax?" (annual) | §5 calculation workflow + `scripts/lk_tax_calc.py` |
-| "How much APIT from my salary?" | `python scripts/lk_tax_calc.py apit --monthly <amount>` |
+| "How much APIT from my salary?" | `python3 <skill-dir>/scripts/lk_tax_calc.py apit --monthly <amount>` |
 | "When / deadlines?" | `references/deadlines-calendar.md` |
 | "What documents / how to file / how to pay?" | `references/filing-and-payment.md` |
 | Interest, rent, service fee, dividend WHT/AIT | `references/wht-apit-ait.md` |
@@ -74,13 +74,16 @@ Intake checklist (use the relevant lines only):
 - Tax already paid: APIT, AIT/WHT, quarterly instalments
 
 ### C. Calculate — always show the working
-Run the calculator rather than doing arithmetic in your head:
+Run the calculator rather than doing arithmetic in your head. The script lives in this
+skill's own folder (the folder containing this SKILL.md), which is usually not the
+current working directory, so call it by its full path. In the examples below,
+`<skill-dir>` means that folder.
 
 ```bash
-python scripts/lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 156000 \
+python3 <skill-dir>/scripts/lk_tax_calc.py annual --ya 2025/26 --employment 3600000 --apit-paid 222000 \
   --interest 400000 --ait-paid 40000 --lang si
-python scripts/lk_tax_calc.py apit --monthly 350000 --ya 2025/26
-python scripts/lk_tax_calc.py --help
+python3 <skill-dir>/scripts/lk_tax_calc.py apit --monthly 350000 --ya 2025/26
+python3 <skill-dir>/scripts/lk_tax_calc.py --help
 ```
 Inputs are annual rupee amounts unless the flag says monthly. Use `--json` for a machine-readable result.
 If you cannot run code (e.g. a chat with no code tool), follow the identical steps in
